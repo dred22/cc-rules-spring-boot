@@ -8,6 +8,7 @@ import com.mk.ecommerce.exception.DuplicateResourceException;
 import com.mk.ecommerce.exception.ResourceNotFoundException;
 import com.mk.ecommerce.repository.CustomerRepository;
 import com.mk.ecommerce.repository.OrderRepository;
+import com.mk.ecommerce.repository.ProductReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final OrderRepository orderRepository;
+    private final ProductReviewRepository reviewRepository;
 
     @Transactional(readOnly = true)
     public List<CustomerResponse> findAll() {
@@ -66,6 +68,7 @@ public class CustomerService {
         if (orderRepository.existsByCustomerId(id)) {
             throw new BusinessRuleException("Cannot delete customer with existing orders: " + id);
         }
+        reviewRepository.deleteByCustomerId(id);
         customerRepository.delete(customer);
     }
 

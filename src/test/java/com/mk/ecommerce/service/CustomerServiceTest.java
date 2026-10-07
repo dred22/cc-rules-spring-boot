@@ -8,6 +8,7 @@ import com.mk.ecommerce.exception.DuplicateResourceException;
 import com.mk.ecommerce.exception.ResourceNotFoundException;
 import com.mk.ecommerce.repository.CustomerRepository;
 import com.mk.ecommerce.repository.OrderRepository;
+import com.mk.ecommerce.repository.ProductReviewRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -31,6 +32,9 @@ class CustomerServiceTest {
 
     @Mock
     private OrderRepository orderRepository;
+
+    @Mock
+    private ProductReviewRepository reviewRepository;
 
     @InjectMocks
     private CustomerService customerService;
@@ -129,6 +133,19 @@ class CustomerServiceTest {
 
         // Assert
         verify(customerRepository).delete(existing);
+    }
+
+    @Test
+    void should_delete_customer_reviews_when_customer_is_deleted() {
+        // Arrange
+        when(customerRepository.findById(1L)).thenReturn(Optional.of(customer(1L, "john@example.com")));
+        when(orderRepository.existsByCustomerId(1L)).thenReturn(false);
+
+        // Act
+        customerService.delete(1L);
+
+        // Assert
+        verify(reviewRepository).deleteByCustomerId(1L);
     }
 
     private Customer customer(Long id, String email) {

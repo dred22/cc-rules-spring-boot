@@ -10,6 +10,7 @@ import com.mk.ecommerce.exception.ResourceNotFoundException;
 import com.mk.ecommerce.repository.CategoryRepository;
 import com.mk.ecommerce.repository.OrderItemRepository;
 import com.mk.ecommerce.repository.ProductRepository;
+import com.mk.ecommerce.repository.ProductReviewRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -37,6 +38,9 @@ class ProductServiceTest {
 
     @Mock
     private OrderItemRepository orderItemRepository;
+
+    @Mock
+    private ProductReviewRepository reviewRepository;
 
     @InjectMocks
     private ProductService productService;
@@ -162,6 +166,19 @@ class ProductServiceTest {
 
         // Assert
         verify(productRepository).delete(existing);
+    }
+
+    @Test
+    void should_delete_product_reviews_when_product_is_deleted() {
+        // Arrange
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product(1L, "SKU-1")));
+        when(orderItemRepository.existsByProductId(1L)).thenReturn(false);
+
+        // Act
+        productService.delete(1L);
+
+        // Assert
+        verify(reviewRepository).deleteByProductId(1L);
     }
 
     private Category category() {

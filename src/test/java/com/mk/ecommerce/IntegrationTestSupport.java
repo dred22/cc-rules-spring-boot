@@ -7,6 +7,7 @@ import com.mk.ecommerce.repository.CategoryRepository;
 import com.mk.ecommerce.repository.CustomerRepository;
 import com.mk.ecommerce.repository.OrderRepository;
 import com.mk.ecommerce.repository.ProductRepository;
+import com.mk.ecommerce.repository.ProductReviewRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.resttestclient.TestRestTemplate;
@@ -36,9 +37,13 @@ public abstract class IntegrationTestSupport {
     @Autowired
     protected OrderRepository orderRepository;
 
+    @Autowired
+    protected ProductReviewRepository reviewRepository;
+
     /** Deletes in foreign-key order; deleting orders cascades to their items and payment. */
     @AfterEach
     void cleanDatabase() {
+        reviewRepository.deleteAll();
         orderRepository.deleteAll();
         productRepository.deleteAll();
         customerRepository.deleteAll();

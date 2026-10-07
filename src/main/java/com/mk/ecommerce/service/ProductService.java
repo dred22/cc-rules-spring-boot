@@ -10,6 +10,7 @@ import com.mk.ecommerce.exception.ResourceNotFoundException;
 import com.mk.ecommerce.repository.CategoryRepository;
 import com.mk.ecommerce.repository.OrderItemRepository;
 import com.mk.ecommerce.repository.ProductRepository;
+import com.mk.ecommerce.repository.ProductReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final OrderItemRepository orderItemRepository;
+    private final ProductReviewRepository reviewRepository;
 
     @Transactional(readOnly = true)
     public List<ProductResponse> findAll(Long categoryId) {
@@ -79,6 +81,7 @@ public class ProductService {
         if (orderItemRepository.existsByProductId(id)) {
             throw new BusinessRuleException("Cannot delete product referenced by orders: " + id);
         }
+        reviewRepository.deleteByProductId(id);
         productRepository.delete(product);
     }
 
