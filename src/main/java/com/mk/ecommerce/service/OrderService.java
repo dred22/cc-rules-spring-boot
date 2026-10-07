@@ -16,16 +16,22 @@ import com.mk.ecommerce.repository.CustomerRepository;
 import com.mk.ecommerce.repository.OrderRepository;
 import com.mk.ecommerce.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
+
+    private static final int LOW_STOCK_THRESHOLD = 10;
 
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
@@ -68,6 +74,7 @@ public class OrderService {
                 .build();
 
         BigDecimal total = BigDecimal.ZERO;
+        Map<Long, Product> reducedProducts = new LinkedHashMap<>();
         for (OrderItemRequest itemRequest : request.getItems()) {
             Product product = lockProduct(itemRequest.getProductId());
             if (!product.getActive()) {
@@ -77,6 +84,7 @@ public class OrderService {
                 throw new BusinessRuleException("Insufficient stock for product: " + product.getSku());
             }
             product.setStockQuantity(product.getStockQuantity() - itemRequest.getQuantity());
+            reducedProducts.put(product.getId(), product);
             order.addItem(OrderItem.builder()
                     .product(product)
                     .quantity(itemRequest.getQuantity())
@@ -84,6 +92,8 @@ public class OrderService {
                     .build());
             total = total.add(product.getPrice().multiply(BigDecimal.valueOf(itemRequest.getQuantity())));
         }
+
+        warnOnLowStock(reducedProducts.values());
 
         order.setTotalAmount(total);
         order.assignPayment(Payment.builder()
@@ -115,6 +125,14 @@ public class OrderService {
     @Transactional
     public OrderResponse cancelOrder(Long orderId) {
         return updateStatus(orderId, OrderStatus.CANCELLED);
+    }
+
+    private void warnOnLowStock(Iterable<Product> products) {
+        for (Product product : products) {
+            if (product.getStockQuantity() < LOW_STOCK_THRESHOLD) {
+                log.warn("Low stock alert: {} has {} units left", product.getName(), product.getStockQuantity());
+            }
+        }
     }
 
     private void restoreStock(Order order) {

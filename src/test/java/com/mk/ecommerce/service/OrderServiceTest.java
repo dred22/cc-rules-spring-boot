@@ -1,5 +1,9 @@
 package com.mk.ecommerce.service;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.mk.ecommerce.dto.OrderItemRequest;
 import com.mk.ecommerce.dto.OrderRequest;
 import com.mk.ecommerce.dto.OrderResponse;
@@ -16,11 +20,14 @@ import com.mk.ecommerce.exception.ResourceNotFoundException;
 import com.mk.ecommerce.repository.CustomerRepository;
 import com.mk.ecommerce.repository.OrderRepository;
 import com.mk.ecommerce.repository.ProductRepository;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -45,6 +52,21 @@ class OrderServiceTest {
 
     @InjectMocks
     private OrderService orderService;
+
+    private final Logger orderServiceLogger = (Logger) LoggerFactory.getLogger(OrderService.class);
+    private ListAppender<ILoggingEvent> logAppender;
+
+    @BeforeEach
+    void attachLogAppender() {
+        logAppender = new ListAppender<>();
+        logAppender.start();
+        orderServiceLogger.addAppender(logAppender);
+    }
+
+    @AfterEach
+    void detachLogAppender() {
+        orderServiceLogger.detachAppender(logAppender);
+    }
 
     // ---------- placeOrder ----------
 
@@ -79,6 +101,66 @@ class OrderServiceTest {
 
         // Assert
         assertThat(product.getStockQuantity()).isEqualTo(7);
+    }
+
+    @Test
+    void should_log_low_stock_warning_when_remaining_stock_is_below_threshold() {
+        // Arrange
+        Product product = product(10L, "24.99", 14, true);
+        when(customerRepository.findById(1L)).thenReturn(Optional.of(customer()));
+        when(productRepository.findWithLockById(10L)).thenReturn(Optional.of(product));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        OrderResponse result = orderService.placeOrder(orderRequest(10L, 5));
+
+        // Assert
+        assertThat(result.getStatus()).isEqualTo(OrderStatus.PENDING);
+        assertThat(logAppender.list)
+                .filteredOn(event -> event.getLevel() == Level.WARN)
+                .extracting(ILoggingEvent::getFormattedMessage)
+                .containsExactly("Low stock alert: Product 10 has 9 units left");
+    }
+
+    @Test
+    void should_not_log_low_stock_warning_when_remaining_stock_equals_threshold() {
+        // Arrange
+        Product product = product(10L, "24.99", 15, true);
+        when(customerRepository.findById(1L)).thenReturn(Optional.of(customer()));
+        when(productRepository.findWithLockById(10L)).thenReturn(Optional.of(product));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        orderService.placeOrder(orderRequest(10L, 5));
+
+        // Assert
+        assertThat(logAppender.list).filteredOn(event -> event.getLevel() == Level.WARN).isEmpty();
+    }
+
+    @Test
+    void should_log_low_stock_warning_once_when_same_product_is_ordered_twice() {
+        // Arrange
+        Product product = product(10L, "24.99", 12, true);
+        OrderRequest request = OrderRequest.builder()
+                .customerId(1L)
+                .shippingAddress("123 Maple Street")
+                .paymentMethod(PaymentMethod.CREDIT_CARD)
+                .items(List.of(
+                        OrderItemRequest.builder().productId(10L).quantity(2).build(),
+                        OrderItemRequest.builder().productId(10L).quantity(2).build()))
+                .build();
+        when(customerRepository.findById(1L)).thenReturn(Optional.of(customer()));
+        when(productRepository.findWithLockById(10L)).thenReturn(Optional.of(product));
+        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        orderService.placeOrder(request);
+
+        // Assert
+        assertThat(logAppender.list)
+                .filteredOn(event -> event.getLevel() == Level.WARN)
+                .extracting(ILoggingEvent::getFormattedMessage)
+                .containsExactly("Low stock alert: Product 10 has 8 units left");
     }
 
     @Test
