@@ -59,3 +59,6 @@ All handled in `GlobalExceptionHandler`, returning `ErrorResponse` JSON:
 - Run: `./mvnw spring-boot:run`
 - Test: `./mvnw test`
 - Compile check: `./mvnw clean compile`
+
+## Docker Engine
+Available via wsl, for instace "wsl docker ps"
